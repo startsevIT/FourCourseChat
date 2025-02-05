@@ -3,7 +3,7 @@ namespace Domain.business_logic;
 
 public interface IUserRepo
 {
-    public void Register(RegisterUserDTO dto);
-    public string Login(LoginUserDTO dto);
-    public GetAccountUserDTO Read(Guid id);
+    public Task RegisterAsync(RegisterUserDTO dto);
+    public Task<string> LoginAsync(LoginUserDTO dto);
+    public Task<GetAccountUserDTO> ReadAsync(Guid id);
 }

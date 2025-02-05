@@ -1,9 +1,9 @@
 ﻿using Domain.business_entities.dtos;
 namespace Domain.business_logic;
 
-internal interface IChatRepo
+public interface IChatRepo
 {
-    public void Create(CreateChatDTO dto);
-    public GetAndLinkChatDTO ReadAndLink(Guid Id, Guid UserId);
-    public GetForListChatDTO ReadForList(Guid Id);
+    public Task CreateAsync(CreateChatDTO dto);
+    public Task<GetAndLinkChatDTO> ReadAndLinkAsync(Guid Id, Guid UserId);
+    public Task<GetForListChatDTO> ReadForListAsync(Guid Id);
 }
