@@ -1,6 +1,7 @@
 ﻿using Domain.business_entities.dtos;
 using Domain.business_entities.entities;
 using Domain.business_logic;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.DataBase.Repos;
 
@@ -20,23 +21,43 @@ public class ChatRepo : IChatRepo
     public async Task<GetAndLinkChatDTO> ReadAndLinkAsync(Guid id, Guid userId)
     {
         using SqLiteDbContext db = new();
-        Chat? chat = await db.Chats.FindAsync(id) 
+
+        Chat? chat = await db.Chats
+            .Include(c => c.Users)
+            .Include(c => c.Messages)
+            .FirstOrDefaultAsync(x => x.Id == id) 
             ?? throw new Exception("not found chat");
 
-        User? user = await db.Users.FindAsync(userId) 
-            ?? throw new Exception("not found user");
-
-        if (!user.Chats.All(x => x.Id == chat.Id))
+        if (chat.Users.FirstOrDefault(x => x.Id == userId) == null)
         {
+            User? user = await db.Users.FindAsync(userId) ?? throw new Exception("not found user");
             chat.Users.Add(user);
             await db.SaveChangesAsync();
         }
 
-        GetAndLinkChatDTO result = new(chat.Name,chat.Id,)
+        List<GetMessageDTO> messages = [];
+        foreach (var m in chat.Messages)
+        {
+            var dto = new GetMessageDTO(m.Text, m.DateTime, m.Owner.Name);
+            messages.Add(dto);
+        }
+
+        List<string> names = [];
+        foreach (var u in chat.Users)
+            names.Add(u.Name);
+
+
+        GetAndLinkChatDTO result = new(chat.Name, chat.Id, messages, names);
+        return result;
     }
 
-    public Task<GetForListChatDTO> ReadForListAsync(Guid Id)
+    public async Task<GetForListChatDTO> ReadForListAsync(Guid Id)
     {
-        throw new NotImplementedException();
+        using SqLiteDbContext db = new();
+        Chat? chat = await db.Chats.FindAsync(Id) 
+            ?? throw new Exception("not found chat");
+
+        GetForListChatDTO result = new(chat.Id, chat.Name);
+        return result;
     }
 }

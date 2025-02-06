@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Domain.business_entities.entities;
+﻿namespace Domain.business_entities.entities;
 
 public class Message(Guid id, string text, DateTime dateTime, User owner, Chat chat)
 {

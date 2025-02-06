@@ -1,12 +1,12 @@
 ﻿namespace Domain.business_entities.dtos;
 
-public class RegisterUserDTO(
+public record class RegisterUserDTO(
     string Name,
     string Login,
     string Password);
-public class LoginUserDTO(
+public record class LoginUserDTO(
     string Login,
     string Password);
-public class GetAccountUserDTO(
+public record class GetAccountUserDTO(
     string Name,
     List<GetForListChatDTO> Chats);
