@@ -45,16 +45,45 @@ app.MapPost("/users/login", async (LoginUserDTO dto) =>
 });
 app.MapGet("/users/account", [Authorize] async (HttpContext ctx) =>
 {
-    Guid id = new(ctx.User.FindFirst("id").Value);
+    Guid id = GetIdFromHttpContext(ctx);
     UserRepo repo = new();
-    try 
+    try
     {
         return Results.Ok(await repo.ReadAsync(id));
     }
-    catch(Exception ex)
+    catch (Exception ex)
     {
         return Results.NotFound(ex.Message);
     }
-    
+
 });
+
+app.MapPost("/chats/create", [Authorize] async (CreateChatDTO dto, HttpContext ctx) =>
+{
+    Guid userId = GetIdFromHttpContext(ctx);
+    ChatRepo repo = new();
+    try
+    {
+        await repo.CreateAsync(dto, userId);
+        return "Chat created";
+    }
+    catch (Exception ex) { return ex.Message; }
+});
+app.MapGet("/chats/link/{chatId}", [Authorize] async (HttpContext ctx, Guid chatId) =>
+{
+    Guid userId = GetIdFromHttpContext(ctx);
+    ChatRepo repo = new();
+    try
+    {
+        var result = await repo.ReadAndLinkAsync(chatId, userId);
+        return Results.Ok(result); 
+    }
+    catch(Exception ex) { return Results.NotFound(ex.Message); }
+});
+
 app.Run();
+
+static Guid GetIdFromHttpContext(HttpContext ctx)
+{
+    return new(ctx.User.FindFirst("id").Value);
+}

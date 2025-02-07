@@ -1,8 +1,7 @@
 ﻿namespace Domain.business_entities.dtos;
 
 public record class CreateChatDTO(
-    string Name,
-    Guid UserId);
+    string Name);
 public record class GetAndLinkChatDTO(
     string Name, 
     Guid Id, 
