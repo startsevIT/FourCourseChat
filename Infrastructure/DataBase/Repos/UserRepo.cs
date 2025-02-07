@@ -9,7 +9,7 @@ using System.Security.Claims;
 
 namespace Infrastructure.DataBase.Repos;
 
-class UserRepo : IUserRepo
+public class UserRepo : IUserRepo
 {
     public async Task<string> LoginAsync(LoginUserDTO dto)
     {

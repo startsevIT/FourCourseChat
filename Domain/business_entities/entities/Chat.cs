@@ -2,6 +2,7 @@
 
 public class Chat(Guid id, string name, List<Message> messages, List<User> users)
 {
+    public Chat() : this(null, null) { }
     public Chat(string name, User user) 
         : this(Guid.NewGuid(), name, [], [user]) 
     { }

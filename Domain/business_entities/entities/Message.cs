@@ -2,6 +2,7 @@
 
 public class Message(Guid id, string text, DateTime dateTime, User owner, Chat chat)
 {
+    public Message() : this(null, null, null) { }
     public Message(string text, User owner, Chat chat) 
         : this(Guid.NewGuid(),text,DateTime.Now,owner,chat) 
     { }
