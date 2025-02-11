@@ -1,9 +1,11 @@
-using Domain.business_entities.dtos;
+﻿using Domain.business_entities.dtos;
 using Infrastructure.Auth;
 using Infrastructure.DataBase.Repos;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
+using System.Net.WebSockets;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder();
 
@@ -20,6 +22,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 
 var app = builder.Build();
 
+app.UseWebSockets();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -32,7 +36,7 @@ app.MapPost("/users/register", async (RegisterUserDTO dto) =>
         return "User compelete register";
     }
     catch (Exception ex) { return ex.Message; }
-    
+
 });
 app.MapPost("/users/login", async (LoginUserDTO dto) =>
 {
@@ -41,7 +45,7 @@ app.MapPost("/users/login", async (LoginUserDTO dto) =>
     {
         return await repo.LoginAsync(dto);
     }
-    catch(Exception ex) { return ex.Message; }
+    catch (Exception ex) { return ex.Message; }
 });
 app.MapGet("/users/account", [Authorize] async (HttpContext ctx) =>
 {
@@ -76,10 +80,45 @@ app.MapGet("/chats/link/{chatId}", [Authorize] async (HttpContext ctx, Guid chat
     try
     {
         var result = await repo.ReadAndLinkAsync(chatId, userId);
-        return Results.Ok(result); 
+        return Results.Ok(result);
     }
-    catch(Exception ex) { return Results.NotFound(ex.Message); }
+    catch (Exception ex) { return Results.NotFound(ex.Message); }
 });
+
+
+Dictionary<Guid,List<WebSocket>> rooms = [];
+
+app.Map("/ws/{id}", async (HttpContext ctx, Guid id) =>
+{
+    var websocket = await ctx.WebSockets.AcceptWebSocketAsync();
+    byte[] buffer = new byte[1024 * 4];
+
+    if (rooms.ContainsKey(id))
+        rooms[id].Add(websocket);
+    else
+        rooms.Add(id, [websocket]);
+
+    var result = await websocket.ReceiveAsync(new(buffer), CancellationToken.None);
+
+    while (!result.CloseStatus.HasValue)
+    {
+        string recieveMessage = Encoding.UTF8.GetString(buffer[..result.Count]);
+
+
+        byte[] sendMessage = Encoding.UTF8.GetBytes(recieveMessage);
+
+        foreach (var connection in rooms[id])
+            await connection.SendAsync(sendMessage, result.MessageType, result.EndOfMessage, CancellationToken.None);
+
+        result = await websocket.ReceiveAsync(new(buffer), CancellationToken.None);
+    }
+
+    await websocket.CloseAsync(result.CloseStatus.Value,result.CloseStatusDescription,CancellationToken.None);
+    rooms[id].Remove(websocket);
+});
+
+
+
 
 app.Run();
 
