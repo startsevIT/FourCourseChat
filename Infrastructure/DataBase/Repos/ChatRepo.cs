@@ -1,20 +1,21 @@
 ﻿using Domain.business_entities.dtos;
 using Domain.business_entities.entities;
 using Domain.business_logic;
+using Domain.Mapping;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.DataBase.Repos;
 
 public class ChatRepo : IChatRepo
 {
-    public async Task CreateAsync(CreateChatDTO dto)
+    public async Task CreateAsync(CreateChatDTO dto, Guid userId)
     {
         using SqLiteDbContext db = new ();
-        User? user = await db.Users.FindAsync(dto.UserId) 
+        User? user = await db.Users.FindAsync(userId) 
             ?? throw new Exception("not found user");
 
-        Chat chat = new(dto.Name, user);
-        await db.Chats.AddAsync(chat);
+        Chat chat = dto.Map(user);
+        db.Chats.Add(chat);
         await db.SaveChangesAsync();
     }
 
@@ -30,7 +31,8 @@ public class ChatRepo : IChatRepo
 
         if (chat.Users.FirstOrDefault(x => x.Id == userId) == null)
         {
-            User? user = await db.Users.FindAsync(userId) ?? throw new Exception("not found user");
+            User? user = await db.Users.FindAsync(userId) 
+                ?? throw new Exception("not found user");
             chat.Users.Add(user);
             await db.SaveChangesAsync();
         }
@@ -38,17 +40,21 @@ public class ChatRepo : IChatRepo
         List<GetMessageDTO> messages = [];
         foreach (var m in chat.Messages)
         {
-            var dto = new GetMessageDTO(m.Text, m.DateTime, m.Owner.Name);
+            var dto = m.Map(m.Owner);
             messages.Add(dto);
         }
 
-        List<string> names = [];
-        foreach (var u in chat.Users)
-            names.Add(u.Name);
+        //Это
+        List<string> names = [..chat.Users.Select(x => x.Name)];
 
 
-        GetAndLinkChatDTO result = new(chat.Name, chat.Id, messages, names);
-        return result;
+        //И это - одно и то же
+        //List<string> names = [];
+        //foreach (var u in chat.Users)
+        //    names.Add(u.Name);
+
+
+       return chat.Map(messages, names);
     }
 
     public async Task<GetForListChatDTO> ReadForListAsync(Guid Id)
@@ -57,7 +63,6 @@ public class ChatRepo : IChatRepo
         Chat? chat = await db.Chats.FindAsync(Id) 
             ?? throw new Exception("not found chat");
 
-        GetForListChatDTO result = new(chat.Id, chat.Name);
-        return result;
+        return chat.Map();
     }
 }
