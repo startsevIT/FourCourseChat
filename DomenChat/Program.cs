@@ -6,7 +6,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 
+#region Services
 var builder = WebApplication.CreateBuilder();
 
 builder.Services.AddAuthorization();
@@ -19,14 +22,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         IssuerSigningKey = AuthOptions.GetSymmetricSecurityKey(),
         ValidateIssuerSigningKey = true,
     });
-
+#endregion
+#region App
 var app = builder.Build();
 
 app.UseWebSockets();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
+#endregion
+#region Users
 app.MapPost("/users/register", async (RegisterUserDTO dto) =>
 {
     UserRepo repo = new();
@@ -61,7 +66,8 @@ app.MapGet("/users/account", [Authorize] async (HttpContext ctx) =>
     }
 
 });
-
+#endregion
+#region chats
 app.MapPost("/chats/create", [Authorize] async (CreateChatDTO dto, HttpContext ctx) =>
 {
     Guid userId = GetIdFromHttpContext(ctx);
@@ -84,37 +90,50 @@ app.MapGet("/chats/link/{chatId}", [Authorize] async (HttpContext ctx, Guid chat
     }
     catch (Exception ex) { return Results.NotFound(ex.Message); }
 });
-
+#endregion
 
 Dictionary<Guid,List<WebSocket>> rooms = [];
 
-app.Map("/ws/{id}", async (HttpContext ctx, Guid id) =>
+app.Map("/ws/{chatId}",[Authorize] async (HttpContext ctx, Guid chatId) =>
 {
+    Guid userId = GetIdFromHttpContext(ctx);
     var websocket = await ctx.WebSockets.AcceptWebSocketAsync();
     byte[] buffer = new byte[1024 * 4];
 
-    if (rooms.ContainsKey(id))
-        rooms[id].Add(websocket);
+    ChatRepo repo = new();
+    await repo.ReadAndLinkAsync(chatId, userId);
+
+    if (rooms.ContainsKey(chatId))
+        rooms[chatId].Add(websocket);
     else
-        rooms.Add(id, [websocket]);
+        rooms.Add(chatId, [websocket]);
 
     var result = await websocket.ReceiveAsync(new(buffer), CancellationToken.None);
 
     while (!result.CloseStatus.HasValue)
     {
-        string recieveMessage = Encoding.UTF8.GetString(buffer[..result.Count]);
+        CreateMessageDTO receiveMessage = JsonSerializer.Deserialize<CreateMessageDTO>(Encoding.UTF8.GetString(buffer[..result.Count]));
+
+        MessageRepo messageRepo = new();
+        Guid messageId = await messageRepo.CreateAsync(receiveMessage, userId, chatId);
+
+        JsonSerializerOptions options = new() //Настройка для корректной сериализации Кириллицы
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            WriteIndented = true
+        };
 
 
-        byte[] sendMessage = Encoding.UTF8.GetBytes(recieveMessage);
+        byte[] sendMessage = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(await messageRepo.ReadAsync(messageId), options));
 
-        foreach (var connection in rooms[id])
+        foreach (var connection in rooms[chatId])
             await connection.SendAsync(sendMessage, result.MessageType, result.EndOfMessage, CancellationToken.None);
 
         result = await websocket.ReceiveAsync(new(buffer), CancellationToken.None);
     }
 
     await websocket.CloseAsync(result.CloseStatus.Value,result.CloseStatusDescription,CancellationToken.None);
-    rooms[id].Remove(websocket);
+    rooms[chatId].Remove(websocket);
 });
 
 

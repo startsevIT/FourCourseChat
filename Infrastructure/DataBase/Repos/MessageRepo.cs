@@ -8,18 +8,20 @@ namespace Infrastructure.DataBase.Repos;
 
 public class MessageRepo : IMessageRepo
 {
-    public async Task CreateAsync(CreateMessageDTO dto)
+    public async Task<Guid> CreateAsync(CreateMessageDTO dto, Guid userId, Guid chatId)
     {
         using SqLiteDbContext db = new();
 
-        User? user = await db.Users.FindAsync(dto.UserId) 
+        User? user = await db.Users.FindAsync(userId) 
             ?? throw new Exception("not found user");
 
-        Chat? chat = await db.Chats.FindAsync(dto.ChatId)
+        Chat? chat = await db.Chats.FindAsync(chatId)
             ?? throw new Exception("not found chat");
 
-        await db.Messages.AddAsync(dto.Map(user, chat));
+        Message message = dto.Map(user, chat);
+        await db.Messages.AddAsync(message);
         await db.SaveChangesAsync();
+        return message.Id;
     }
 
     public async Task<GetMessageDTO> ReadAsync(Guid id)
