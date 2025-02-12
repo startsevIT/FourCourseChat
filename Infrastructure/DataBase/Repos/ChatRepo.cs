@@ -11,11 +11,11 @@ public class ChatRepo : IChatRepo
     public async Task CreateAsync(CreateChatDTO dto, Guid userId)
     {
         using SqLiteDbContext db = new ();
+
         User? user = await db.Users.FindAsync(userId) 
             ?? throw new Exception("not found user");
 
-        Chat chat = dto.Map(user);
-        db.Chats.Add(chat);
+        db.Chats.Add(dto.Map(user));
         await db.SaveChangesAsync();
     }
 
@@ -30,39 +30,31 @@ public class ChatRepo : IChatRepo
             ?? throw new Exception("not found chat");
 
         if (chat.Users.FirstOrDefault(x => x.Id == userId) == null)
-        {
-            User? user = await db.Users.FindAsync(userId) 
-                ?? throw new Exception("not found user");
-            chat.Users.Add(user);
-            await db.SaveChangesAsync();
-        }
+            await AddUserToChat(userId, db, chat);
 
-        List<GetMessageDTO> messages = [];
-        foreach (var m in chat.Messages)
-        {
-            var dto = m.Map(m.Owner);
-            messages.Add(dto);
-        }
-
-        //Это
+        List<GetMessageDTO> messages = [..chat.Messages.Select(x => x.Map(x.Owner))];
         List<string> names = [..chat.Users.Select(x => x.Name)];
 
-
-        //И это - одно и то же
-        //List<string> names = [];
-        //foreach (var u in chat.Users)
-        //    names.Add(u.Name);
-
-
-       return chat.Map(messages, names);
+        return chat.Map(messages, names);
     }
 
     public async Task<GetForListChatDTO> ReadForListAsync(Guid Id)
     {
         using SqLiteDbContext db = new();
+
         Chat? chat = await db.Chats.FindAsync(Id) 
             ?? throw new Exception("not found chat");
 
         return chat.Map();
+    }
+
+    private static async Task AddUserToChat(Guid userId, SqLiteDbContext db, Chat chat)
+    {
+        User? user = await db.Users.FindAsync(userId)
+            ?? throw new Exception("not found user");
+
+        chat.Users.Add(user);
+
+        await db.SaveChangesAsync();
     }
 }

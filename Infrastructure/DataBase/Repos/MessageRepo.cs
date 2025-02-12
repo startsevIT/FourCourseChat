@@ -11,6 +11,7 @@ public class MessageRepo : IMessageRepo
     public async Task CreateAsync(CreateMessageDTO dto)
     {
         using SqLiteDbContext db = new();
+
         User? user = await db.Users.FindAsync(dto.UserId) 
             ?? throw new Exception("not found user");
 
@@ -24,6 +25,7 @@ public class MessageRepo : IMessageRepo
     public async Task<GetMessageDTO> ReadAsync(Guid id)
     {
         using SqLiteDbContext db = new();
+
         Message? message = await db.Messages
             .Include(x => x.Owner)
             .FirstOrDefaultAsync(x => x.Id == id) 
